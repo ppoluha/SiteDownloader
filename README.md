@@ -26,7 +26,7 @@ A Java-based web page downloader using Jsoup. This tool downloads web pages, inc
 2. **Build the project using Maven**
 
     ```sh
-    mvn clean install
+    mvn clean package
     ```
 
 ## Usage
@@ -34,7 +34,7 @@ A Java-based web page downloader using Jsoup. This tool downloads web pages, inc
 1. **Run the downloader**
 
     ```sh
-    java -cp target/downloader-1.0-SNAPSHOT.jar se.hkr.downloader.Downloader <sourceUrl> <targetFolder>
+    java -jar target/site-downloader-1.0-SNAPSHOT.jar se.hkr.downloader.Downloader <sourceUrl> <targetFolder>
     ```
 
     - `<sourceUrl>`: The URL of the web page to download.
@@ -43,18 +43,8 @@ A Java-based web page downloader using Jsoup. This tool downloads web pages, inc
     For example:
 
     ```sh
-    java -cp target/downloader-1.0-SNAPSHOT.jar se.hkr.downloader.Downloader https://example.com /path/to/target/folder
+    java -jar target/site-downloader-1.0-SNAPSHOT.jar se.hkr.downloader.Downloader https://example.com /path/to/target/folder
     ```
-
-## Example
-
-To download the contents of `https://example.com` and save them to `/path/to/target/folder`, run:
-
-```sh
-java -cp target/downloader-1.0-SNAPSHOT.jar se.hkr.downloader.Downloader https://example.com /path/to/target/folder
-```
-
-This will create a folder structure under `/path/to/target/folder` that mirrors the structure of the web page and its resources.
 
 ## Project Structure
 

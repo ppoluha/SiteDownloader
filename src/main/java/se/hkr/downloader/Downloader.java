@@ -11,17 +11,22 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class Downloader {
-    private static final Set<String> processedUrls = new HashSet<>();
+    private static final Set<String> processedUrls = ConcurrentHashMap.newKeySet();
     private static final int MAX_DEPTH = 10;
+    private static final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-    public static void main(String[] args) throws IOException, URISyntaxException {
+    public static void main(String[] args) throws IOException, URISyntaxException, InterruptedException {
         String sourceUrl = args[0];
         String targetFolder = args[1];
         downloadPage(sourceUrl, new URI(sourceUrl), targetFolder, MAX_DEPTH);
+        executor.awaitTermination(1, TimeUnit.HOURS);
     }
 
     private static void downloadPage(String sourceUrl, URI baseUri, String targetFolder, int depth) throws IOException, URISyntaxException {
@@ -30,11 +35,18 @@ public class Downloader {
         }
         processedUrls.add(sourceUrl);
         System.out.printf("Downloading %s%n", sourceUrl);
-        Document htmlDoc = Jsoup.connect(sourceUrl).get();
-        savePage(htmlDoc.outerHtml(), sourceUrl, targetFolder);
-        HtmlContent pageContent = parsePage(htmlDoc);
-        saveResources(pageContent.resources(), targetFolder, baseUri);
-        followLinks(pageContent.links(), targetFolder, baseUri, depth - 1);
+
+        executor.submit(() -> {
+            try {
+                Document htmlDoc = Jsoup.connect(sourceUrl).get();
+                savePage(htmlDoc.outerHtml(), sourceUrl, targetFolder);
+                HtmlContent pageContent = parsePage(htmlDoc);
+                saveResources(pageContent.resources(), targetFolder, baseUri);
+                followLinks(pageContent.links(), targetFolder, baseUri, depth - 1);
+            } catch (Exception e) {
+                System.err.printf("Failed to download page: %s. Cause: %s%n", sourceUrl, e);
+            }
+        });
     }
 
     private static void savePage(String html, String sourceUrl, String targetFolder) throws IOException, URISyntaxException {
@@ -87,19 +99,21 @@ public class Downloader {
             if (resourceUrl.isEmpty()) continue;
             if (processedUrls.contains(resourceUrl)) continue;
             processedUrls.add(resourceUrl);
-            try {
-                URI uri = new URI(resourceUrl);
-                if (!baseUri.getHost().equals(uri.getHost())) continue;
-                Path targetPath = getTargetPath(resourceUrl, targetFolder);
-                if (Files.exists(targetPath)) continue;
-                System.out.printf("Downloading resource: %s%n", uri);
-                Files.createDirectories(targetPath.getParent());
-                try (InputStream in = uri.toURL().openStream()) {
-                    Files.copy(in, targetPath);
+            executor.submit(() -> {
+                try {
+                    URI uri = new URI(resourceUrl);
+                    if (!baseUri.getHost().equals(uri.getHost())) return;
+                    Path targetPath = getTargetPath(resourceUrl, targetFolder);
+                    if (Files.exists(targetPath)) return;
+                    System.out.printf("Downloading resource: %s%n", uri);
+                    Files.createDirectories(targetPath.getParent());
+                    try (InputStream in = uri.toURL().openStream()) {
+                        Files.copy(in, targetPath);
+                    }
+                } catch (Exception e) {
+                    System.err.printf("Failed to save resource: %s. Cause: %s%n", resourceUrl, e);
                 }
-            } catch (Exception e) {
-                System.err.printf("Failed to save resource: %s. Cause: %s%n", resourceUrl, e);
-            }
+            });
         }
     }
 }

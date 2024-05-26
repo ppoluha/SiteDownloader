@@ -18,18 +18,22 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class Downloader {
-    private static final Set<String> processedUrls = ConcurrentHashMap.newKeySet();
     private static final int MAX_DEPTH = 10;
-    private static final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final Set<String> processedUrls = ConcurrentHashMap.newKeySet();
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     public static void main(String[] args) throws IOException, URISyntaxException, InterruptedException {
         String sourceUrl = args[0];
         String targetFolder = args[1];
-        downloadPage(sourceUrl, new URI(sourceUrl), targetFolder, MAX_DEPTH);
+        new Downloader().start(sourceUrl, new URI(sourceUrl), targetFolder, MAX_DEPTH);
+    }
+
+    private void start(String sourceUrl, URI baseUri, String targetFolder, int depth) throws InterruptedException, IOException, URISyntaxException {
+        downloadPage(sourceUrl, baseUri, targetFolder, depth);
         executor.awaitTermination(1, TimeUnit.HOURS);
     }
 
-    private static void downloadPage(String sourceUrl, URI baseUri, String targetFolder, int depth) throws IOException, URISyntaxException {
+    private void downloadPage(String sourceUrl, URI baseUri, String targetFolder, int depth) throws IOException, URISyntaxException {
         if (depth <= 0 || processedUrls.contains(sourceUrl)) {
             return;
         }
@@ -49,7 +53,7 @@ public class Downloader {
         });
     }
 
-    private static void savePage(String html, String sourceUrl, String targetFolder) throws IOException, URISyntaxException {
+    private void savePage(String html, String sourceUrl, String targetFolder) throws IOException, URISyntaxException {
         Path targetPath = getTargetPath(sourceUrl, targetFolder);
         Files.createDirectories(targetPath.getParent());
         try (FileWriter writer = new FileWriter(targetPath.toFile())) {
@@ -57,7 +61,7 @@ public class Downloader {
         }
     }
 
-    private static Path getTargetPath(String sourceUrl, String targetFolder) throws URISyntaxException {
+    private Path getTargetPath(String sourceUrl, String targetFolder) throws URISyntaxException {
         URI uri = new URI(sourceUrl);
         String path = uri.getPath();
         if (path == null || path.isEmpty()) {
@@ -71,7 +75,7 @@ public class Downloader {
         return targetPath;
     }
 
-    private static void followLinks(Elements links, String targetFolder, URI baseUri, int depth) {
+    private void followLinks(Elements links, String targetFolder, URI baseUri, int depth) {
         for (Element link : links) {
             String href = link.attr("abs:href");
             if (href.isEmpty()) continue;
@@ -83,7 +87,7 @@ public class Downloader {
         }
     }
 
-    private static HtmlContent parsePage(Document htmlDoc) {
+    private HtmlContent parsePage(Document htmlDoc) {
         Elements links = htmlDoc.select("a[href]");
         Elements images = htmlDoc.select("img[src]");
         Elements scripts = htmlDoc.select("script[src]");
@@ -91,7 +95,7 @@ public class Downloader {
         return new HtmlContent(links, images, scripts, styles);
     }
 
-    private static void saveResources(Elements resources, String targetFolder, URI baseUri) {
+    private void saveResources(Elements resources, String targetFolder, URI baseUri) {
         for (Element resource : resources) {
             String resourceUrl = resource.attr("abs:src").isEmpty() ?
                     resource.attr("abs:href") :

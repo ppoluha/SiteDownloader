@@ -9,9 +9,14 @@ A Java-based web page downloader using Jsoup. This tool downloads web pages, inc
 - Avoids downloading resources from other domains.
 - Limits recursion depth to avoid infinite loops.
 
+## Limitations
+
+- Won't download fonts (or other files) specified in css files.
+- Waits for one hour before threads and application are terminated. Should probably be replaced by use of a CountDownLatch.
+
 ## Prerequisites
 
-- Java 21 or higher
+- Java 21 or higher (uses virtual threads)
 - Maven
 
 ## Installation
